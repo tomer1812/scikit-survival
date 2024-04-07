@@ -21,6 +21,14 @@ from ..base import SurvivalAnalysisMixin
 from ..functions import StepFunction
 from ..util import check_array_survival
 from ._criterion import LogrankCriterion, get_unique_times
+# from ._splitter import Splitter, BestSplitter, RandomSplitter, BestSparseSplitter, RandomSparseSplitter
+#
+# DENSE_SPLITTERS = {"best": BestSplitter, "random": RandomSplitter}
+#
+# SPARSE_SPLITTERS = {
+#     "best": BestSparseSplitter,
+#     "random": RandomSparseSplitter,
+# }
 
 __all__ = ["ExtraSurvivalTree", "SurvivalTree"]
 
@@ -77,6 +85,18 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
         - If float, then `min_samples_leaf` is a fraction and
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
+
+    min_observed_leaf : int, float, optional, default: 0
+        The minimum number of samples with observed event required to be at a leaf node.
+        A split point at any depth will only be considered if it leaves at
+        least ``min_observed_leaf`` training samples with observed event in each of the left and
+        right branches.  This may have the effect of smoothing the model,
+        especially in regression.
+
+        - If int, then consider `min_observed_leaf` as the minimum number.
+        - If float, then `min_observed_leaf` is a fraction and
+          `ceil(min_observed_leaf * n_samples)` are the minimum
+          number of samples with observed event for each node.
 
     min_weight_fraction_leaf : float, optional, default: 0.
         The minimum weighted fraction of the sum total of weights (of all
@@ -165,6 +185,10 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
             Interval(Integral, 1, None, closed="left"),
             Interval(Real, 0.0, 0.5, closed="right"),
         ],
+        "min_observed_leaf": [
+            Interval(Integral, 1, None, closed="left"),
+            Interval(Real, 0.0, 0.5, closed="right"),
+        ],
         "min_weight_fraction_leaf": [Interval(Real, 0.0, 0.5, closed="both")],
         "max_features": [
             Interval(Integral, 1, None, closed="left"),
@@ -186,6 +210,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
         max_depth=None,
         min_samples_split=6,
         min_samples_leaf=3,
+        min_observed_leaf=1,
         min_weight_fraction_leaf=0.0,
         max_features=None,
         random_state=None,
@@ -196,6 +221,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
+        self.min_observed_leaf = min_observed_leaf
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
         self.random_state = random_state
@@ -320,6 +346,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
                 criterion,
                 self.max_features_,
                 params["min_samples_leaf"],
+                params["min_observed_leaf"],
                 params["min_weight_leaf"],
                 random_state,
                 None,  # monotonic_cst
@@ -333,6 +360,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
                 splitter,
                 params["min_samples_split"],
                 params["min_samples_leaf"],
+                params["min_observed_leaf"],
                 params["min_weight_leaf"],
                 params["max_depth"],
                 0.0,  # min_impurity_decrease
@@ -342,6 +370,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
                 splitter,
                 params["min_samples_split"],
                 params["min_samples_leaf"],
+                params["min_observed_leaf"],
                 params["min_weight_leaf"],
                 params["max_depth"],
                 params["max_leaf_nodes"],
@@ -365,6 +394,11 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
         else:  # float
             min_samples_leaf = int(ceil(self.min_samples_leaf * n_samples))
 
+        if isinstance(self.min_observed_leaf, (Integral, np.integer)):
+            min_observed_leaf = self.min_observed_leaf
+        else:  # float
+            min_observed_leaf = int(ceil(self.min_observed_leaf * n_samples))
+
         if isinstance(self.min_samples_split, Integral):
             min_samples_split = self.min_samples_split
         else:  # float
@@ -384,6 +418,7 @@ class SurvivalTree(BaseEstimator, SurvivalAnalysisMixin):
             "max_depth": max_depth,
             "max_leaf_nodes": max_leaf_nodes,
             "min_samples_leaf": min_samples_leaf,
+            "min_observed_leaf": min_observed_leaf,
             "min_samples_split": min_samples_split,
             "min_weight_leaf": min_weight_leaf,
         }
@@ -684,6 +719,7 @@ class ExtraSurvivalTree(SurvivalTree):
         max_depth=None,
         min_samples_split=6,
         min_samples_leaf=3,
+        min_observed_leaf=1,
         min_weight_fraction_leaf=0.0,
         max_features=None,
         random_state=None,
@@ -695,6 +731,7 @@ class ExtraSurvivalTree(SurvivalTree):
             max_depth=max_depth,
             min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf,
+            min_observed_leaf=min_observed_leaf,
             min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_features=max_features,
             random_state=random_state,

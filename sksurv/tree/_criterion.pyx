@@ -369,3 +369,41 @@ cdef class LogrankCriterion(Criterion):
                     dest[j] += ratio
                     dest[j + 1] *= 1.0 - ratio
                 j += 2
+
+    cpdef get_observed_events(self, intp_t pos):
+        """
+        Returns the number of observed events in the left and right nodes for a given split position.
+        This method allows evaluation of split positions before making a decision.
+    
+        Parameters
+        ----------
+        pos : intp_t
+            The potential position to split the node, used to calculate the observed
+            events in the left and right resulting nodes.
+    
+        Returns
+        -------
+        tuple
+            A tuple containing the number of observed events in the left and right nodes.
+        """
+        cdef:
+            intp_t events_left = 0
+            intp_t events_right = 0
+            intp_t i, idx
+            float64_t event
+
+        # Calculate the number of events in the left node
+        for i in range(self.start, pos):
+            idx = self.sample_indices[i]  # Get the actual sample index
+            event = self.y[idx, 1]  # Assuming y[:, 1] indicates if an event occurred
+            if event == 1.0:
+                events_left += 1
+
+        # Calculate the number of events in the right node
+        for i in range(pos, self.end):
+            idx = self.sample_indices[i]  # Get the actual sample index
+            event = self.y[idx, 1]  # Assuming y[:, 1] indicates if an event occurred
+            if event == 1.0:
+                events_right += 1
+
+        return events_left, events_right
